@@ -1,4 +1,4 @@
-package com.torandi.lib.net.ssl;
+package com.torandi.lib.net;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -10,6 +10,7 @@ import java.security.*;
 import java.security.cert.*;
 
 import javax.net.ssl.*;
+
 
 public class SSLUtil {
 

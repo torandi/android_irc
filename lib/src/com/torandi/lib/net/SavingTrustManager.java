@@ -1,4 +1,4 @@
-package com.torandi.lib.net.ssl;
+package com.torandi.lib.net;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
