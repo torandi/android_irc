@@ -1,11 +1,52 @@
 package com.torandi.lib.net.ssl;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.UnknownHostException;
 import java.security.*;
 import java.security.cert.*;
 
 import javax.net.ssl.*;
 
 public class SSLUtil {
+
+	private SSLContext sslContext;
+	private SSLSocketFactory sslSocketFactor = null;
+	private SSLServerSocketFactory sslServerSocketFactor = null;
+	private SavingTrustManager sm;
+
+	public SSLUtil(String keystore_file, String password) throws UnrecoverableKeyException, KeyManagementException, NoSuchAlgorithmException, NoSuchProviderException, KeyStoreException, CertificateException, FileNotFoundException, IOException {
+		this(createKeyStore(new FileInputStream(new File(keystore_file)), password), password);
+	}
+	
+	public SSLUtil(KeyStore keystore, String password) throws UnrecoverableKeyException, NoSuchAlgorithmException, NoSuchProviderException, KeyStoreException, KeyManagementException {
+		X509KeyManager km = createKeyManager(keystore, password);
+		X509TrustManager tm = createTrustManager(keystore);
+		sm = new SavingTrustManager(tm);
+
+		sslContext = createSSLContext(km, sm);
+	}
+	
+	public SavingTrustManager getTrustManager() {
+		return sm;
+	}
+	
+	public SSLSocket connect(String host, int port) throws UnknownHostException, IOException {
+		if(sslSocketFactor == null) {
+			sslSocketFactor = (SSLSocketFactory) sslContext.getSocketFactory();
+		}
+		return (SSLSocket) sslSocketFactor.createSocket(host, port);
+	}
+	
+	public SSLServerSocket listen(int port) throws IOException {
+		if(sslServerSocketFactor == null) {
+			sslServerSocketFactor = (SSLServerSocketFactory) sslContext.getServerSocketFactory();
+		}
+		return (SSLServerSocket) sslServerSocketFactor.createServerSocket(port);
+	}
 	
 	public static String getFingerPrint(X509Certificate cert) throws NoSuchAlgorithmException, CertificateEncodingException {
 		MessageDigest md = MessageDigest.getInstance("SHA-1");
@@ -14,7 +55,13 @@ public class SSLUtil {
 		byte[] digest = md.digest();
 		return hexify(digest);
 	}
-
+	
+	public static KeyStore createKeyStore(InputStream is, String password) throws KeyStoreException, NoSuchProviderException, NoSuchAlgorithmException, CertificateException, IOException {
+		KeyStore keystore = KeyStore.getInstance("JKS", "SUN");
+		keystore.load(is, password.toCharArray());
+		return keystore;
+	}
+	
 	private static String hexify (byte bytes[]) {
 
 		char[] hexDigits = {'0', '1', '2', '3', '4', '5', '6', '7', 
@@ -32,14 +79,14 @@ public class SSLUtil {
 		return buf.toString();
 	}
 	
-	public static SSLContext createSSLContext(KeyManager km, TrustManager tm ) throws KeyManagementException, NoSuchAlgorithmException {
+	private static SSLContext createSSLContext(KeyManager km, TrustManager tm ) throws KeyManagementException, NoSuchAlgorithmException {
 		SSLContext sslContext = SSLContext.getInstance("TLS");
 		sslContext.init(new KeyManager[] { km }, new TrustManager[] { tm }, null);
 		
 		return sslContext;
 	}
 	
-	public static X509KeyManager createKeyManager(KeyStore keystore, String password) throws NoSuchAlgorithmException, NoSuchProviderException, UnrecoverableKeyException, KeyStoreException {
+	private static X509KeyManager createKeyManager(KeyStore keystore, String password) throws NoSuchAlgorithmException, NoSuchProviderException, UnrecoverableKeyException, KeyStoreException {
 		KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
 		keyManagerFactory.init(keystore, password.toCharArray());
 		for( KeyManager km : keyManagerFactory.getKeyManagers() ) {
@@ -51,7 +98,7 @@ public class SSLUtil {
 		throw new NullPointerException();
 	}
 	
-	public static X509TrustManager createTrustManager(KeyStore keystore) throws NoSuchAlgorithmException, KeyStoreException {
+	private static X509TrustManager createTrustManager(KeyStore keystore) throws NoSuchAlgorithmException, KeyStoreException {
 		TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
 		trustManagerFactory.init(keystore);
 		for( TrustManager tm : trustManagerFactory.getTrustManagers() ) {
