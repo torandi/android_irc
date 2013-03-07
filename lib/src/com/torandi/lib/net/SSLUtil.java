@@ -35,6 +35,10 @@ public class SSLUtil {
 		sslContext = createSSLContext(km, sm);
 	}
 	
+	public SSLUtil(InputStream keystore, String password) throws UnrecoverableKeyException, KeyManagementException, NoSuchAlgorithmException, NoSuchProviderException, KeyStoreException, CertificateException, IOException {
+		this(createKeyStore(keystore, password), password);
+	}
+
 	public SavingTrustManager getTrustManager() {
 		return sm;
 	}
@@ -45,12 +49,22 @@ public class SSLUtil {
 		}
 		return (SSLSocket) sslSocketFactor.createSocket(host, port);
 	}
-	
+
+	/**
+	 * Starts to listen for ssl connections on the given port
+	 * EnabledProtocols are set to TLS only
+	 * 
+	 * @param port
+	 * @return A new SSLServerSocket
+	 * @throws IOException
+	 */
 	public SSLServerSocket listen(int port) throws IOException {
 		if(sslServerSocketFactor == null) {
 			sslServerSocketFactor = (SSLServerSocketFactory) sslContext.getServerSocketFactory();
 		}
-		return (SSLServerSocket) sslServerSocketFactor.createServerSocket(port);
+		SSLServerSocket ss = (SSLServerSocket) sslServerSocketFactor.createServerSocket(port);
+		ss.setEnabledProtocols(new String[] { "TLSv1" });
+		return ss;
 	}
 
 	/**
@@ -91,9 +105,13 @@ public class SSLUtil {
 	 * @throws IOException
 	 */
 	public void saveKeyStore(String file, String password) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException {
-		OutputStream os = new FileOutputStream(new File(password));
+		OutputStream os = new FileOutputStream(new File(file));
 		keystore.store(os, password.toCharArray());
 		os.close();
+	}
+	
+	public void saveKeyStore(OutputStream os, String password) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException {
+		keystore.store(os, password.toCharArray());
 	}
 
 	/**

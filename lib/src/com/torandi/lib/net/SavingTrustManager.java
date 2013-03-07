@@ -26,9 +26,7 @@ public class SavingTrustManager implements X509TrustManager {
 			throws CertificateException {
 		this.chain = chain;
 		if(trusted_cert != null) {
-			System.out.println("Start check + "+chain.length);
 			chain[0].checkValidity();
-			System.out.println("Cert valid");
 			try {
 				chain[0].verify(trusted_cert.getPublicKey());
 				return;

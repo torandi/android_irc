@@ -7,7 +7,7 @@ import java.io.InputStreamReader;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLSocket;
 
-public class SocketManager {
+public class SSLSocketManager {
 	/**
 	 * Starts receiving (non-blocking)
 	 */
@@ -25,13 +25,13 @@ public class SocketManager {
 								if(stream == null) {
 									stream = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 								}
-								if(stream.ready()) {
-									listener.dataRecived(stream.readLine(), socket);
-								} else {
+								String line = null;
+								while((line = stream.readLine()) != null) {
+									listener.dataRecived(line, socket);
 								}
-								
 							} catch (IOException e) {
 								e.printStackTrace();
+								Thread.currentThread().interrupt();
 							}
 						}
 		

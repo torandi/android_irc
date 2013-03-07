@@ -5,6 +5,63 @@ import java.util.regex.Pattern;
 
 import com.torandi.lib.GetOpt.ArgumentException.type;
 
+/**
+ * Class for handling program arguments
+ * 
+ * Usage:
+ * 
+ * First create a array of options:
+ * final Option[] options = {
+ * 		new Option("long-name", 'l' (short name), arg_style-enum, "Description"),
+ * 		new Option(...)
+ * };
+ * The short name must be unique as it is used to identify the option.
+ * 
+ * Arg-style controls if the option requires a argument
+ * 
+ *	NO_ARGUMENT: No argument required
+ * 	REQUIRED_ARGUMENT: Argument is required
+ *	OPTIONAL_ARGUMENT: Argument is optional
+ * 
+ * Now create the getopt parser:
+ * final GetOpt getopt = new GetOpt(options);
+ * 
+ * Create parse pair and a StringWrapper (a way to make strings pass-by-reference)
+ * 
+ * ParsePair parse_pair = new ParsePair(args);
+ * StringWrapper arg = new StringWrapper();
+ * 
+ * Then a construct like this:
+		try {
+			char opt = (char)-1;
+			while((opt = getopt.parse(parse_pair, arg)) != (char)-1) {
+				switch(opt) {
+				case 'c':
+					client_mode = true;
+					break;
+				case 's':
+					client_mode = false;
+					break;
+				case 'p':
+					port = Integer.parseInt(arg.str);
+					break;
+				case 'h':
+					//Print help
+					return;
+				default:
+				}
+			}
+		} catch (ArgumentException e) {
+			System.out.println(e.getMessage());
+			return;
+		}
+ *
+ * Afterwards if you want to have extra arguments in the end you can call parse_pair.has_current(), which returns true if there still 
+ * are arguments left, and parse_pair.next() returns the argument.
+ * 
+ * @author torandi
+ *
+ */
 public class GetOpt {
 	 /**
 	  *  Fail if an malformed argument is found (exception)
