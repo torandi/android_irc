@@ -43,7 +43,7 @@ public class SavingTrustManager implements X509TrustManager {
 		return tm.getAcceptedIssuers();
 	}
 	
-	public void setTrustedCert(X509Certificate cert) {
+	public void setTemporaryTrustedCert(X509Certificate cert) {
 		trusted_cert = cert;
 	}
 	

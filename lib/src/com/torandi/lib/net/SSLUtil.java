@@ -3,8 +3,10 @@ package com.torandi.lib.net;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.UnknownHostException;
 import java.security.*;
 import java.security.cert.*;
@@ -18,6 +20,7 @@ public class SSLUtil {
 	private SSLSocketFactory sslSocketFactor = null;
 	private SSLServerSocketFactory sslServerSocketFactor = null;
 	private SavingTrustManager sm;
+	private KeyStore keystore;
 
 	public SSLUtil(String keystore_file, String password) throws UnrecoverableKeyException, KeyManagementException, NoSuchAlgorithmException, NoSuchProviderException, KeyStoreException, CertificateException, FileNotFoundException, IOException {
 		this(createKeyStore(new FileInputStream(new File(keystore_file)), password), password);
@@ -28,6 +31,7 @@ public class SSLUtil {
 		X509TrustManager tm = createTrustManager(keystore);
 		sm = new SavingTrustManager(tm);
 
+		this.keystore = keystore;
 		sslContext = createSSLContext(km, sm);
 	}
 	
@@ -48,7 +52,14 @@ public class SSLUtil {
 		}
 		return (SSLServerSocket) sslServerSocketFactor.createServerSocket(port);
 	}
-	
+
+	/**
+	 * Return the fingerprint for a given cert
+	 * @param cert
+	 * @return
+	 * @throws NoSuchAlgorithmException
+	 * @throws CertificateEncodingException
+	 */
 	public static String getFingerPrint(X509Certificate cert) throws NoSuchAlgorithmException, CertificateEncodingException {
 		MessageDigest md = MessageDigest.getInstance("SHA-1");
 		byte[] der = cert.getEncoded();
@@ -56,7 +67,46 @@ public class SSLUtil {
 		byte[] digest = md.digest();
 		return hexify(digest);
 	}
+
+	/**
+	 * Add a certificate to the list of trusted certs
+	 * 
+	 * @param cert 
+	 * @throws KeyStoreException
+	 */
+	public void addTrustedCert(X509Certificate cert) throws KeyStoreException {
+		String dn = cert.getSubjectDN().getName();
+		keystore.setEntry(dn, new KeyStore.TrustedCertificateEntry(cert), null);
+		
+		sm.setTemporaryTrustedCert(cert);
+	}
 	
+	/**
+	 *  Save the current keystore to disk
+	 * @param file
+	 * @param password
+	 * @throws KeyStoreException
+	 * @throws NoSuchAlgorithmException
+	 * @throws CertificateException
+	 * @throws IOException
+	 */
+	public void saveKeyStore(String file, String password) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException {
+		OutputStream os = new FileOutputStream(new File(password));
+		keystore.store(os, password.toCharArray());
+		os.close();
+	}
+
+	/**
+	 * Create a keystore from a input stream
+	 * @param is InputStream to use
+	 * @param password Password for the input stream
+	 * @return The created keystore
+	 * @throws KeyStoreException
+	 * @throws NoSuchProviderException
+	 * @throws NoSuchAlgorithmException
+	 * @throws CertificateException
+	 * @throws IOException
+	 */
 	public static KeyStore createKeyStore(InputStream is, String password) throws KeyStoreException, NoSuchProviderException, NoSuchAlgorithmException, CertificateException, IOException {
 		KeyStore keystore = KeyStore.getInstance("JKS", "SUN");
 		keystore.load(is, password.toCharArray());
