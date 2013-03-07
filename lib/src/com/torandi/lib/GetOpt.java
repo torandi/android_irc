@@ -59,6 +59,9 @@ import com.torandi.lib.GetOpt.ArgumentException.type;
  * Afterwards if you want to have extra arguments in the end you can call parse_pair.has_current(), which returns true if there still 
  * are arguments left, and parse_pair.next() returns the argument.
  * 
+ * 
+ * getopt.print_usage() prints all arguments and descriptions
+ * 
  * @author torandi
  *
  */

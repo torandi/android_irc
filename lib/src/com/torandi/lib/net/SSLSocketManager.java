@@ -30,8 +30,8 @@ public class SSLSocketManager {
 									listener.dataRecived(line, socket);
 								}
 							} catch (IOException e) {
-								e.printStackTrace();
 								Thread.currentThread().interrupt();
+								listener.connectionClosed(socket, e);
 							}
 						}
 		

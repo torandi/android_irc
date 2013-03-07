@@ -1,5 +1,7 @@
 package com.torandi.lib.net;
 
+import java.io.IOException;
+
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLSocket;
 
@@ -12,5 +14,5 @@ public interface SSLSocketListener {
      * @param srvr
      */
     public void newClient(SSLSocket client, SSLServerSocket srvr);
-    public void connectionClosed(SSLSocket sck);
+    public void connectionClosed(SSLSocket sck, IOException e);
 }
