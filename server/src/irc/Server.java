@@ -1,4 +1,4 @@
-package com.torandi.irc;
+package irc;
 
 import java.io.IOException;
 

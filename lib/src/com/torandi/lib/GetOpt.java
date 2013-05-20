@@ -96,9 +96,11 @@ public class GetOpt {
 	 * @return the short char for the option, or -1 if end of list
 	 * 		
 	 */
-	public char parse(ParsePair parse_pair, StringWrapper argument) throws ArgumentException{
+	public int parse(ParsePair parse_pair, StringWrapper argument) throws ArgumentException{
 		String next = parse_pair.next();
-		if(next == null) return (char)-1;
+		if(next == null) {
+			return -1;
+		}
 		
 		Matcher m = short_pattern.matcher(next);
 		
@@ -171,7 +173,7 @@ public class GetOpt {
 			if(fail_on_malformed) {
 				throw new ArgumentException("Malformed argument "+next, type.MALFORMED_ARGUMENT);
 			} else{
-				return (char)-1;
+				return -1;
 			}
 		}
 	}

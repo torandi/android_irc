@@ -1,4 +1,4 @@
-package com.torandi.irc;
+package irc;
 
 import java.io.IOException;
 import java.io.PrintStream;
@@ -11,7 +11,7 @@ import javax.net.ssl.SSLSocket;
 import com.torandi.lib.net.SSLSocketListener;
 import com.torandi.lib.net.SSLSocketManager;
 
-public class Client implements SSLSocketListener, HandshakeCompletedListener {
+public class ClientSession implements SSLSocketListener, HandshakeCompletedListener {
 	private SSLSocket socket;
 	private PrintStream output = null;
 	private Thread thread = null;
@@ -30,7 +30,7 @@ public class Client implements SSLSocketListener, HandshakeCompletedListener {
 	
 	private MODE mode;
 
-	public Client(SSLSocket socket) {
+	public ClientSession(SSLSocket socket) {
 		this.socket = socket;
 		mode = MODE.NEW;
 		socket.addHandshakeCompletedListener(this);
