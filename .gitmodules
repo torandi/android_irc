@@ -1,0 +1,3 @@
+[submodule "submodules/php_migrations"]
+	path = submodules/php_migrations
+	url = git://github.com/torandi/php_migrations.git
