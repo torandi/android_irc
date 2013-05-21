@@ -3,3 +3,4 @@
 *.swp
 server.cfg
 authorized_users
+rsa_key
