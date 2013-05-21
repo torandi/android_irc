@@ -1,6 +1,6 @@
-package irc;
+package irc.server;
 
-import irc.db.DatabaseConnection;
+import irc.server.db.DatabaseConnection;
 
 import com.torandi.lib.GetOpt;
 import com.torandi.lib.GetOpt.ArgumentException;
@@ -61,7 +61,6 @@ public class Main {
 		
 		//Initialize database
 		if(DatabaseConnection.get() == null) return;
-		System.out.println("Database connected");
 		
 		new Server(port, keystore, password);
 	}

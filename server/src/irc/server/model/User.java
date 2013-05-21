@@ -1,11 +1,11 @@
-package irc.model;
+package irc.server.model;
 
 import java.io.*;
 import java.sql.SQLException;
 import java.util.ArrayList;
 
-import irc.db.DatabaseObject;
-import irc.db.ValidationException;
+import irc.server.db.DatabaseObject;
+import irc.server.db.ValidationException;
 
 public class User extends DatabaseObject<User> {
 	/* Data readers/writers */
@@ -42,10 +42,20 @@ public class User extends DatabaseObject<User> {
 		return list;
 	}
 	
-	public static User authenticate(String username, String fingerprint) throws UserNotAllowedException, SQLException {
+	public static User authenticate(String username, String fingerprint) throws UserNotAllowedException, SQLException, ValidationException {
 		ArrayList<String> authorizedUsers = authorizedUsers();
 	
-		if(authorizedUsers.contains(fingerprint)) return q().first("fingerprint", fingerprint);
+		if(authorizedUsers.contains(fingerprint)) {
+			User u = q().first("fingerprint", fingerprint);
+			if(u == null) {
+				/* Create new user */
+				u = new User();
+				u.setNick(username);
+				u.setFingerprint(fingerprint);
+				u.commit();
+			}
+			return u;
+		}
 		throw new UserNotAllowedException(username, fingerprint);
 	}
 	

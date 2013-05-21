@@ -1,7 +1,7 @@
-package irc.model;
+package irc.server.model;
 
-import irc.db.DatabaseObject;
-import irc.db.ValidationException;
+import irc.server.db.DatabaseObject;
+import irc.server.db.ValidationException;
 
 public class Network extends DatabaseObject<Network> {
 	/* Data readers/writers */

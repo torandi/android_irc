@@ -1,4 +1,4 @@
-package irc;
+package irc.server;
 
 import java.io.IOException;
 
@@ -20,11 +20,15 @@ public class Server implements SSLSocketListener {
 		try {
 			ssl = new SSLUtil(keystore, password);
 			socket = ssl.listen(port);
+
+			socket.setWantClientAuth(false);
+			socket.setNeedClientAuth(false);
 		} catch (Exception e) {
 			System.err.println("Failed to setup ssl: "+e.getMessage());
 			System.exit(-1);
 		}
 		socket_thread = SSLSocketManager.listen(socket, this);
+		println("Listening on port "+port);
 	}
 	
 	@Override
@@ -39,10 +43,15 @@ public class Server implements SSLSocketListener {
 
 	@Override
 	public void newClient(SSLSocket client, SSLServerSocket srvr) {
-		
+		println("New client connected.");
+		new ClientSession(client);
 	}
 
 	@Override
 	public void connectionClosed(SSLSocket sck, IOException e) { }
+	
+	private void println(String str) {
+		System.out.println("[CLIENT] "+str);
+	}
 
 }

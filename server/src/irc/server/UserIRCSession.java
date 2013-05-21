@@ -1,4 +1,4 @@
-package irc;
+package irc.server;
 
 public class UserIRCSession {
 	

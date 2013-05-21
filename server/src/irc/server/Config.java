@@ -1,4 +1,4 @@
-package irc;
+package irc.server;
 
 import java.io.FileInputStream;
 import java.io.IOException;

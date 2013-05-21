@@ -1,28 +1,41 @@
-package irc;
+package irc.server;
+
+import irc.server.model.User;
+import irc.server.model.User.UserNotAllowedException;
 
 import java.io.IOException;
 import java.io.PrintStream;
+import java.math.BigInteger;
+import java.security.PublicKey;
 
 import javax.net.ssl.HandshakeCompletedEvent;
 import javax.net.ssl.HandshakeCompletedListener;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLSocket;
 
-import com.torandi.lib.net.SSLSocketListener;
-import com.torandi.lib.net.SSLSocketManager;
+import com.torandi.lib.net.*;
+import com.torandi.lib.security.*;
 
 public class ClientSession implements SSLSocketListener, HandshakeCompletedListener {
 	private SSLSocket socket;
 	private PrintStream output = null;
 	private Thread thread = null;
+	private RSA rsa = null;
+	private PublicKey pkey = null; /* Public key of the client */
 	
 	private static int VERSION = 0;
 	private static int MIN_VERSION = 0;
+	private static int CHALLENGE_LENGTH = 100;
+	private String challenge = null;
+	
+	
+	private User user = null;
 	
 	private enum MODE {
 		NEW,
 		HANDSHAKED,
 		VERSION_OK,
+		CHALLENGED,
 		ACTIVE,
 		IDLE,
 		CLOSED,
@@ -32,8 +45,16 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 
 	public ClientSession(SSLSocket socket) {
 		this.socket = socket;
+		rsa = new RSA();
+		
 		mode = MODE.NEW;
 		socket.addHandshakeCompletedListener(this);
+		try {
+			socket.startHandshake();
+		} catch (IOException e) {
+			println("Handshake error: ");
+			e.printStackTrace();
+		}
 	}
 
 	public void close() {
@@ -80,16 +101,53 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 				}
 				break;
 			case VERSION_OK:
+				if(cmd.equals("PUBKEY")) {
+					BigInteger pubMod = new BigInteger(split[1], 16);
+					BigInteger pubExp = new BigInteger(split[2], 16);
+					pkey = rsa.createPublicKey(pubMod, pubExp);
+					rsa.initEncryption(pkey);
+					challenge = Util.randomString(CHALLENGE_LENGTH);
+					mode = MODE.CHALLENGED;
+					println("Challenge: "+challenge);
+					output.println("CHALLENGE "+ Util.toHex(rsa.encrypt(challenge)));
+					return;
+				}
+				break;
+			case CHALLENGED:
 				if(cmd.equals("AUTH")) {
-					
+					String username = split[1];
+					String response = split[2];
+					if(response.trim().equals(challenge)) {
+						try {
+							user = User.authenticate(username, RSA.getFingerprint(pkey));
+							mode = MODE.IDLE;
+							output.println("AUTH OK");
+							activate();
+						} catch (UserNotAllowedException e) {
+							println(e.getMessage());
+							output.println("AUTH ERROR");
+							close();
+						}
+					} else {
+						output.println("CHALLENGE ERROR");
+						close();
+					}
+					return;
 				}
 			} 
 			println("Unhandled input: "+data+ " in mode "+mode.toString());
 		} catch (Exception e) {
-			println("Error while parsing data: "+e.getMessage());
+			println("Error while parsing data : ");
+			e.printStackTrace();
 		}
 	}
+	
+	public void activate() {
+		println("Authorized as "+user.getNick());
+		mode = MODE.ACTIVE;
+	}
 
+	
 	@Override
 	public void newClient(SSLSocket client, SSLServerSocket srvr) { }
 

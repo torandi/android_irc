@@ -1,9 +1,9 @@
-package irc.model;
+package irc.server.model;
 
 import java.sql.Timestamp;
 
-import irc.db.DatabaseObject;
-import irc.db.ValidationException;
+import irc.server.db.DatabaseObject;
+import irc.server.db.ValidationException;
 
 public class LogLine extends DatabaseObject<LogLine> {
 	

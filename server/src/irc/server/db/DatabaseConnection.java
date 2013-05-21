@@ -1,4 +1,4 @@
-package irc.db;
+package irc.server.db;
 
 import java.sql.*;
 
