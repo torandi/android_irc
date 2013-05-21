@@ -1,6 +1,7 @@
 package irc.db;
 
 public class ValidationException extends Exception {
+	private static final long serialVersionUID = -8580488182659731429L;
 	private String field, error;
 	public ValidationException(String field, String error) {
 		super("Error in field " + field + ": " + error);
