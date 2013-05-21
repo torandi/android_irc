@@ -13,6 +13,8 @@ import java.security.cert.*;
 
 import javax.net.ssl.*;
 
+import com.torandi.lib.security.Util;
+
 
 public class SSLUtil {
 
@@ -75,11 +77,8 @@ public class SSLUtil {
 	 * @throws CertificateEncodingException
 	 */
 	public static String getFingerPrint(X509Certificate cert) throws NoSuchAlgorithmException, CertificateEncodingException {
-		MessageDigest md = MessageDigest.getInstance("SHA-1");
 		byte[] der = cert.getEncoded();
-		md.update(der);
-		byte[] digest = md.digest();
-		return hexify(digest);
+		return Util.getFingerprint(der);
 	}
 
 	/**
@@ -129,23 +128,6 @@ public class SSLUtil {
 		KeyStore keystore = KeyStore.getInstance("JKS", "SUN");
 		keystore.load(is, password.toCharArray());
 		return keystore;
-	}
-	
-	private static String hexify (byte bytes[]) {
-
-		char[] hexDigits = {'0', '1', '2', '3', '4', '5', '6', '7', 
-				'8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
-
-		StringBuffer buf = new StringBuffer(bytes.length * 2);
-
-		for (int i = 0; i < bytes.length; ++i) {
-			buf.append(hexDigits[(bytes[i] & 0xf0) >> 4]);
-			buf.append(hexDigits[bytes[i] & 0x0f]);
-			buf.append(":");
-		}
-		buf.deleteCharAt(buf.length() - 1);
-
-		return buf.toString();
 	}
 	
 	private static SSLContext createSSLContext(KeyManager km, TrustManager tm ) throws KeyManagementException, NoSuchAlgorithmException {
