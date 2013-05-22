@@ -1,14 +1,14 @@
 CREATE TABLE `channels` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `user_network_id` int(10) unsigned NOT NULL,
+  `id` int(11)  NOT NULL AUTO_INCREMENT,
+  `user_network_id` int(11)  NOT NULL,
   `name` varchar(128) COLLATE utf8_swedish_ci NOT NULL,
   PRIMARY KEY (`id`),
   KEY `user_network_id` (`user_network_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_swedish_ci;
 
 CREATE TABLE `log_lines` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `channel_id` int(10) unsigned NOT NULL,
+  `id` int(11)  NOT NULL AUTO_INCREMENT,
+  `channel_id` int(11)  NOT NULL,
   `type` enum('msg','topic','part','join') COLLATE utf8_swedish_ci NOT NULL DEFAULT 'msg',
   `timestamp` datetime NOT NULL,
   `user` varchar(32) COLLATE utf8_swedish_ci DEFAULT NULL,
@@ -18,22 +18,22 @@ CREATE TABLE `log_lines` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_swedish_ci;
 
 CREATE TABLE `networks` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `id` int(11)  NOT NULL AUTO_INCREMENT,
   `name` varchar(64) COLLATE utf8_swedish_ci NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_swedish_ci;
 
 CREATE TABLE `servers` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `network_id` int(10) unsigned NOT NULL,
+  `id` int(11)  NOT NULL AUTO_INCREMENT,
+  `network_id` int(11)  NOT NULL,
   `address` varchar(256) COLLATE utf8_swedish_ci NOT NULL,
-  `port` int(10) unsigned NOT NULL,
+  `port` int(11)  NOT NULL,
   PRIMARY KEY (`id`),
   KEY `network_id` (`network_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_swedish_ci;
 
 CREATE TABLE `users` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `id` int(11)  NOT NULL AUTO_INCREMENT,
   `nick` varchar(32) COLLATE utf8_swedish_ci NOT NULL,
   `fingerprint` varchar(64) COLLATE utf8_swedish_ci NOT NULL,
   PRIMARY KEY (`id`),
@@ -41,9 +41,9 @@ CREATE TABLE `users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_swedish_ci;
 
 CREATE TABLE `user_networks` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `user_id` int(10) unsigned NOT NULL,
-  `network_id` int(10) unsigned NOT NULL,
+  `id` int(11)  NOT NULL AUTO_INCREMENT,
+  `user_id` int(11)  NOT NULL,
+  `network_id` int(11)  NOT NULL,
   `nick` varchar(32) COLLATE utf8_swedish_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `network_id` (`network_id`),
