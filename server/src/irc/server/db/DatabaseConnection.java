@@ -31,13 +31,13 @@ public class DatabaseConnection {
 		return singleton;
 	}
 	
-	public java.sql.PreparedStatement prepareStatement(String query) {
-		try {
-			return connection.prepareStatement(query);
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-		return null;
+	public PreparedStatement prepareStatement(String query) throws SQLException {
+		return connection.prepareStatement(query);
+	}
+
+	public PreparedStatement prepareStatement(String query,
+			int returnGeneratedKeys) throws SQLException {
+			return connection.prepareStatement(query, returnGeneratedKeys);
 	}
 	
 	public Connection getConnection() {

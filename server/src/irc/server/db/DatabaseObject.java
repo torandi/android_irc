@@ -35,19 +35,21 @@ public abstract class DatabaseObject<T extends DatabaseObject<T>> {
 	}
 	
 	public int id() {
+		if(id == null) throw new RuntimeException("Called .id() on a non-persistent object");
 		return id.intValue();
 	}
 
 	/**
 	 * Save all changes
-	 * @return true on success
 	 * @throws ValidationException, SQLException
 	 */
-	public boolean commit() throws SQLException, ValidationException {
+	public void commit() throws SQLException, ValidationException {
+		boolean store_id = false;
 		validate();
 		String query;
 		if(id == null) {
 			query = "insert into `"+table_name()+"` SET ";
+			store_id = true;
 		} else {
 			query = "update `"+table_name()+"` SET ";
 		}
@@ -60,7 +62,7 @@ public abstract class DatabaseObject<T extends DatabaseObject<T>> {
 		if(id != null) {
 			query += "where `"+id_name()+"` = ?";
 		}
-		PreparedStatement stmt = DatabaseConnection.get().prepareStatement(query);
+		PreparedStatement stmt = DatabaseConnection.get().prepareStatement(query, store_id ? Statement.RETURN_GENERATED_KEYS : Statement.NO_GENERATED_KEYS);
 		int index = 1;
 		for(Field f : columns) {
 			if(!f.name.equals(id_name())) {
@@ -70,7 +72,16 @@ public abstract class DatabaseObject<T extends DatabaseObject<T>> {
 		if(id != null) {
 			stmt.setInt(index, id);
 		}
-		return stmt.execute();
+	
+		stmt.execute();
+		if(store_id) {
+			ResultSet rs = stmt.getGeneratedKeys();
+			if(rs.first()) {
+				id = rs.getInt(1);
+			} else {
+				throw new SQLException("Failed to fetch id for created object in commit()");
+			}
+		}
 	}
 	
 	
@@ -92,7 +103,8 @@ public abstract class DatabaseObject<T extends DatabaseObject<T>> {
 	 * @throws SQLException 
 	 */
 	public T first(String attr, Object value) throws SQLException {
-		PreparedStatement stmt = statement("`"+ attr + "` = ? " + order_string() + " limit 1");
+		
+		PreparedStatement stmt = statement("`"+ attr + "` = ? ","1");
 		stmt.setObject(1, value);
 		ResultSet rs = stmt.executeQuery();
 		ResultSetMetaData meta = rs.getMetaData();
@@ -143,8 +155,26 @@ public abstract class DatabaseObject<T extends DatabaseObject<T>> {
 	 * @throws SQLException 
 	 */
 	public ArrayList<T> find(String attr, Object value) throws SQLException {
-		PreparedStatement stmt = DatabaseConnection.get().prepareStatement("select * from "+table_name() + order_string());
+		PreparedStatement stmt = statement("`"+attr+"` = ?");
+		stmt.setObject(1, value);
 		return where(stmt);
+	}
+	
+	/**
+	 * Search for all objects having attr == value
+	 * @param attr
+	 * @param value
+	 * @param limit Maximum count
+	 * @return
+	 * @throws SQLException 
+	 */
+	public ArrayList<T> find(String attr, Object value, String limit) throws SQLException {
+		PreparedStatement stmt = statement("`"+attr+"` = ?", limit);
+		stmt.setObject(1, value);
+		return where(stmt);
+	}
+	public ArrayList<T> find(String attr, Object value,int limit) throws SQLException {
+		return find(attr, value, ""+limit);
 	}
 	
 	public void set(String field, Object value) {
@@ -171,9 +201,13 @@ public abstract class DatabaseObject<T extends DatabaseObject<T>> {
 		}
 		return res;
 	}
+
+	public PreparedStatement statement(String where, String limit) throws SQLException {
+		return DatabaseConnection.get().prepareStatement("select * from "+table_name()+" WHERE "+where + order_string() + " LIMIT "+limit);
+	}
 	
-	public PreparedStatement statement(String where) {
-		return DatabaseConnection.get().prepareStatement("select * from "+table_name()+" WHERE "+where);
+	public PreparedStatement statement(String where) throws SQLException {
+		return DatabaseConnection.get().prepareStatement("select * from "+table_name()+" WHERE "+where + order_string());
 	}
 	
 	protected void set_from_db(ResultSetMetaData meta, ResultSet rs) throws SQLException {

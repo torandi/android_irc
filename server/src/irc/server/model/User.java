@@ -1,13 +1,32 @@
 package irc.server.model;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
 import java.sql.SQLException;
 import java.util.ArrayList;
+
+import jerklib.Profile;
 
 import irc.server.db.DatabaseObject;
 import irc.server.db.ValidationException;
 
 public class User extends DatabaseObject<User> {
+	
+	public static Profile createProfile(String name) {
+		return new Profile(name, name+"_", name+"__", name+"___");
+	}
+	
+	public Profile createProfile() {
+		return createProfile(getNick());
+	}
+	
+	public boolean isHilight(String message) {
+		/* TODO Handle a list of possible hilight nicks */
+		return message.contains(getNick());
+	}
+	
 	/* Data readers/writers */
 	
 	public String getNick() {
@@ -24,6 +43,10 @@ public class User extends DatabaseObject<User> {
 	
 	public void setFingerprint(String fingerprint) {
 		set("fingerprint", fingerprint);
+	}
+	
+	public ArrayList<UserNetwork> getNetworks() throws SQLException {
+		return UserNetwork.q().find("user_id", id());
 	}
 	
 	public static ArrayList<String> authorizedUsers() {

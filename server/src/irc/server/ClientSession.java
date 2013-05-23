@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.math.BigInteger;
 import java.security.PublicKey;
+import java.sql.SQLException;
 
 import javax.net.ssl.HandshakeCompletedEvent;
 import javax.net.ssl.HandshakeCompletedListener;
@@ -16,7 +17,7 @@ import javax.net.ssl.SSLSocket;
 import com.torandi.lib.net.*;
 import com.torandi.lib.security.*;
 
-public class ClientSession implements SSLSocketListener, HandshakeCompletedListener {
+public class ClientSession implements SSLSocketListener, HandshakeCompletedListener, SendEvent {
 	private SSLSocket socket;
 	private PrintStream output = null;
 	private Thread thread = null;
@@ -27,9 +28,11 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 	private static int MIN_VERSION = 0;
 	private static int CHALLENGE_LENGTH = 100;
 	private String challenge = null;
+	private Server server = null;
 	
 	
 	private User user = null;
+	private UserSession session = null;
 	
 	private enum MODE {
 		NEW,
@@ -43,8 +46,9 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 	
 	private MODE mode;
 
-	public ClientSession(SSLSocket socket) {
+	public ClientSession(Server server, SSLSocket socket) {
 		this.socket = socket;
+		this.server = server;
 		rsa = new RSA();
 		
 		mode = MODE.NEW;
@@ -64,8 +68,12 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 		}
 		
 		try {
+			session = server.userSession(user);
+			session.setClientSession(null);
 			socket.close();
-		} catch (Exception e) { }
+		} catch (Exception e) { 
+			e.printStackTrace();
+		}
 		mode = MODE.CLOSED;
 	}
 	
@@ -122,7 +130,7 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 							user = User.authenticate(username, RSA.getFingerprint(pkey));
 							mode = MODE.IDLE;
 							output.println("AUTH OK");
-							activate();
+							initUser();
 						} catch (UserNotAllowedException e) {
 							println(e.getMessage());
 							output.println("AUTH ERROR");
@@ -134,6 +142,28 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 					}
 					return;
 				}
+			case ACTIVE:
+				if(cmd.equals("IDLE")) {
+					mode = MODE.IDLE;
+					return;
+				}
+				/* Get lines from channel */
+				if(cmd.equals("LINES")) {
+					
+				}
+			case IDLE:
+				if(cmd.equals("ACTIVATE")) {
+					mode = MODE.ACTIVE;
+					return;
+				}
+				if(cmd.equals("CLOSE")) {
+					close();
+					return;
+				}
+				break;
+			case CLOSED:
+			default:
+				break;
 			} 
 			println("Unhandled input: "+data+ " in mode "+mode.toString());
 		} catch (Exception e) {
@@ -142,11 +172,15 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 		}
 	}
 	
-	public void activate() {
-		println("Authorized as "+user.getNick());
-		mode = MODE.ACTIVE;
-	}
+	public void initUser() throws SQLException {
+		session = server.userSession(user);
+		session.setClientSession(this);
+		session.sendInitials();
+ 	}
 
+	public boolean alive() {
+		return mode != MODE.CLOSED;
+	}
 	
 	@Override
 	public void newClient(SSLSocket client, SSLServerSocket srvr) { }
@@ -173,5 +207,22 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 	
 	private void println(String str) {
 		System.out.println("[CLIENT] "+str);
+	}
+
+	@Override
+	public void sendLine(Priority priority, String line) {
+		println(line);
+		switch(mode) {
+		case ACTIVE:
+			output.println(line);
+			break;
+		case IDLE:
+			if(priority != Priority.NORMAL) {
+				output.println(line);
+			}
+			break;
+		default:
+			break;
+		}
 	}
 }

@@ -1,6 +1,11 @@
 package irc.server;
 
+import irc.server.model.User;
+
 import java.io.IOException;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
 
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLSocket;
@@ -15,8 +20,22 @@ public class Server implements SSLSocketListener {
 	private SSLServerSocket socket;
 	private Thread socket_thread;
 	
+	private HashMap<Integer, UserSession> userSessions = new HashMap<Integer, UserSession>();
 	
 	public Server(int port, String keystore, String password) {
+		try {
+			ArrayList<String> authorizedUsers = User.authorizedUsers();
+			for(User u : User.q().all()) {
+				if(authorizedUsers.contains(u.getFingerprint())) {
+					userSession(u);
+				}
+			}
+		} catch (SQLException e) {
+			println("SQL exception when starting user sessions: ");
+			e.printStackTrace();
+			System.exit(-1);
+		}
+		
 		try {
 			ssl = new SSLUtil(keystore, password);
 			socket = ssl.listen(port);
@@ -38,13 +57,22 @@ public class Server implements SSLSocketListener {
 		super.finalize();
 	}
 	
+	protected UserSession userSession(User user) throws SQLException {
+		UserSession us = userSessions.get(user.id());
+		if(us == null) {
+			us = new UserSession(user);
+			userSessions.put(user.id(), us);
+		}
+		return us;
+	}
+	
 	@Override
 	public void dataRecived(String data, SSLSocket sck) { }
 
 	@Override
 	public void newClient(SSLSocket client, SSLServerSocket srvr) {
 		println("New client connected.");
-		new ClientSession(client);
+		new ClientSession(this, client);
 	}
 
 	@Override

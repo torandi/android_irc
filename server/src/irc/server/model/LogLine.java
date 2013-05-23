@@ -2,14 +2,31 @@ package irc.server.model;
 
 import java.sql.Timestamp;
 
+import irc.server.SendEvent;
+import irc.server.SendEvent.Priority;
 import irc.server.db.DatabaseObject;
 import irc.server.db.ValidationException;
 
 public class LogLine extends DatabaseObject<LogLine> {
 	
-	public static enum Type { MSG, TOPIC, PART, JOIN }
+	public static enum Type { MSG, PART, JOIN }
 	
+	/* Send event to receiver
+	 */
+	public void send(SendEvent receiver) {
+		Priority p = isHilight() ? Priority.HIGH : Priority.NORMAL;
+		receiver.sendLine(p, "LINE "+id()+getTimestamp().getTime()+" "+getType() + " "+" "+getChannel().getName()+" "+getUser()+" "+getContent());
+	}
+
 	/* Data readers/writers */
+	
+	private User getActiveUser() {
+		return getChannel().getUserNetwork().getUser();
+	}
+	
+	public boolean isHilight() {
+		return (getContent() != null && getActiveUser().isHilight(getContent()));
+	}
 	
 	public String getUser() {
 		return (String) get("user");
@@ -70,6 +87,11 @@ public class LogLine extends DatabaseObject<LogLine> {
 		validateExistance("channel_id");
 		validateExistance("timestamp");
 		validateExistance("type");
+	}
+	
+	@Override
+	protected String default_order() {
+		return "id desc";
 	}
 	
 

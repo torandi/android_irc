@@ -1,5 +1,8 @@
 package irc.server.model;
 
+import java.sql.SQLException;
+import java.util.ArrayList;
+
 import irc.server.db.DatabaseObject;
 import irc.server.db.ValidationException;
 
@@ -13,7 +16,11 @@ public class Network extends DatabaseObject<Network> {
 	public void setName(String name) {
 		set("name", name);
 	}
-
+	
+	public ArrayList<Server> getServers() throws SQLException {
+		return Server.q().find("network_id", id());
+	}
+	
 	/* Object config */
 	@Override
 	protected Class<Network> cls() {

@@ -1,10 +1,23 @@
 package irc.server.model;
 
+import jerklib.ConnectionManager;
+import jerklib.Profile;
+import jerklib.Session;
 import irc.server.db.DatabaseObject;
 import irc.server.db.ValidationException;
 
 public class Server extends DatabaseObject<Server> {
 	/* Data readers/writers */
+	
+	@Override
+	protected String default_order() {
+		return "id";
+	}
+	
+	public Session connect(ConnectionManager connman, Profile profile) {
+		System.out.println("Connecting to server "+getAddress()+":"+getPort());
+		return connman.requestConnection(getAddress(), getPort(), profile);
+	}
 	
 	public String getAddress() {
 		return (String) get("address");
