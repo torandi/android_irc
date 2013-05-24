@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Timer;
 
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLSocket;
@@ -19,6 +20,7 @@ public class Server implements SSLSocketListener {
 	private SSLUtil ssl;
 	private SSLServerSocket socket;
 	private Thread socket_thread;
+	private Timer ping_timer;
 	
 	private HashMap<Integer, UserSession> userSessions = new HashMap<Integer, UserSession>();
 	
@@ -35,6 +37,8 @@ public class Server implements SSLSocketListener {
 			e.printStackTrace();
 			System.exit(-1);
 		}
+		
+		ping_timer = new Timer(true);
 		
 		try {
 			ssl = new SSLUtil(keystore, password);
@@ -80,6 +84,10 @@ public class Server implements SSLSocketListener {
 	
 	private void println(String str) {
 		System.out.println("[CLIENT] "+str);
+	}
+	
+	Timer getPingTimer() {
+		return ping_timer;
 	}
 
 }

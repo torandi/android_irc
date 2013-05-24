@@ -134,6 +134,7 @@ public class UserNetwork extends DatabaseObject<UserNetwork> implements IRCEvent
 			PartEvent event = (PartEvent) e;
 			Channel channel = findChannel(event.getChannel().getName(), false);
 			LogLine ll = createLogLine();
+			ll.setType(LogLine.Type.PART);
 			handleLogLine(channel, ll);
 			sendNickList(event.getChannel());
 			break;
@@ -143,6 +144,7 @@ public class UserNetwork extends DatabaseObject<UserNetwork> implements IRCEvent
 			JoinEvent event = (JoinEvent) e;
 			Channel channel = findChannel(event.getChannel().getName(), false);
 			LogLine ll = createLogLine();
+			ll.setType(LogLine.Type.JOIN);
 			handleLogLine(channel, ll);
 			sendNickList(event.getChannel());
 			break;
@@ -156,7 +158,7 @@ public class UserNetwork extends DatabaseObject<UserNetwork> implements IRCEvent
 			try { 
 				for(Channel c : getChannels()) {
 					channel_map.put(c.getName(), c);
-					session.join(c.getName());
+					if(!c.isPrivMsg()) session.join(c.getName());
 				}
 			} catch (SQLException e1) {
 				e1.printStackTrace();

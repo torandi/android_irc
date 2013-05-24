@@ -16,8 +16,8 @@ import com.torandi.lib.security.RSA;
 import com.torandi.lib.security.Util;
 
 public class Client implements SSLSocketListener, HandshakeCompletedListener {
+	private String nick;
 
-	private static final String PASSWORD = "password";
 	private RSA rsa = null;
 	private SSLSocket s = null;
 	private PrintStream output = null;
@@ -36,10 +36,49 @@ public class Client implements SSLSocketListener, HandshakeCompletedListener {
 	};
 	
 	private MODE mode;
-	
-	private String nick = "Torandi";
 
-	public Client() {
+	public Client(String hostname, int port, String nick, String keystore_file, String password) {
+		this.nick = nick;
+		initRSA();
+		
+		try {
+			InputStream is = null;
+			try {
+				is = new FileInputStream(new File(keystore_file));
+			} catch (Exception e) {
+				System.out.println("No client keystore found");
+			}
+			KeyStore keystore = SSLUtil.createKeyStore(is, password);
+			if(is != null) is.close();
+		
+			SSLUtil ssl = new SSLUtil(keystore, password);
+			
+			s = ssl.connect(hostname, port);
+			mode = MODE.NEW;
+			s.addHandshakeCompletedListener(this);
+			
+			try {
+				s.startHandshake();
+			} catch (SSLException e) {
+				X509Certificate c = ssl.getTrustManager().chain()[0];
+				
+				ssl.addTrustedCert(c);
+				ssl.saveKeyStore(keystore_file, password);
+		
+				try { s.close(); } catch (Exception ex) {}
+				
+				s = ssl.connect(hostname, port);
+			
+				s.startHandshake();
+			}
+		
+		} catch (Exception e) {
+			e.printStackTrace();
+			return;
+		}
+	}
+	
+	private void initRSA() {
 		rsa = new RSA();
 		try {
 			ObjectInputStream bi = new ObjectInputStream(new FileInputStream("rsa_key"));
@@ -68,42 +107,10 @@ public class Client implements SSLSocketListener, HandshakeCompletedListener {
 			
 		}
 		rsa.init();
+	}
+	
+	public void activate() {
 		
-		try {
-			InputStream is = null;
-			try {
-				is = new FileInputStream(new File("clientstore"));
-			} catch (Exception e) {
-				System.out.println("No client keystore found");
-			}
-			KeyStore keystore = SSLUtil.createKeyStore(is, PASSWORD);
-			if(is != null) is.close();
-		
-			SSLUtil ssl = new SSLUtil(keystore, PASSWORD);
-			
-			s = ssl.connect("localhost", 3167);
-			mode = MODE.NEW;
-			s.addHandshakeCompletedListener(this);
-			
-			try {
-				s.startHandshake();
-			} catch (SSLException e) {
-				X509Certificate c = ssl.getTrustManager().chain()[0];
-				
-				ssl.addTrustedCert(c);
-				ssl.saveKeyStore("clientstore", PASSWORD);
-		
-				try { s.close(); } catch (Exception ex) {}
-				
-				s = ssl.connect("localhost", 1234);
-			
-				s.startHandshake();
-			}
-		
-		} catch (Exception e) {
-			e.printStackTrace();
-			return;
-		}
 	}
 	
 	private void sendPublicKey() {
@@ -147,6 +154,11 @@ public class Client implements SSLSocketListener, HandshakeCompletedListener {
 			String[] split = data.split(" ");
 			String cmd = split[0];
 			System.out.println(">>> "+data);
+			
+			if(cmd.equals("PING")) {
+				output.println("PONG "+split[1]);
+				return;
+			}
 			
 			switch(mode) {
 			case NEW:

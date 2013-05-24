@@ -8,6 +8,7 @@ import java.io.PrintStream;
 import java.math.BigInteger;
 import java.security.PublicKey;
 import java.sql.SQLException;
+import java.util.TimerTask;
 
 import javax.net.ssl.HandshakeCompletedEvent;
 import javax.net.ssl.HandshakeCompletedListener;
@@ -23,17 +24,17 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 	private Thread thread = null;
 	private RSA rsa = null;
 	private PublicKey pkey = null; /* Public key of the client */
-	
+
 	private static int VERSION = 0;
 	private static int MIN_VERSION = 0;
 	private static int CHALLENGE_LENGTH = 100;
 	private String challenge = null;
 	private Server server = null;
-	
-	
+	private PingTask ping_task = null;
+
 	private User user = null;
 	private UserSession session = null;
-	
+
 	private enum MODE {
 		NEW,
 		HANDSHAKED,
@@ -43,14 +44,15 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 		IDLE,
 		CLOSED,
 	};
-	
+
 	private MODE mode;
 
 	public ClientSession(Server server, SSLSocket socket) {
 		this.socket = socket;
 		this.server = server;
+		ping_task = new PingTask();
 		rsa = new RSA();
-		
+
 		mode = MODE.NEW;
 		socket.addHandshakeCompletedListener(this);
 		try {
@@ -62,35 +64,43 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 	}
 
 	public void close() {
+		ping_task.cancel();
 		if(output != null) {
-			try { output.println("CLOSE"); } catch (Exception e) {}
-			output.flush();
+			try {
+				output.println("CLOSE");
+				output.flush();
+			} catch (Exception e) {}
+			output = null;
 		}
-		
+
 		try {
 			session = server.userSession(user);
 			session.setClientSession(null);
 			socket.close();
-		} catch (Exception e) { 
+		} catch (Exception e) {
 			e.printStackTrace();
 		}
+		if(thread != null) thread.interrupt();
 		mode = MODE.CLOSED;
 	}
-	
+
 	@Override
 	protected void finalize() throws Throwable {
 		super.finalize();
 		close();
-		if(thread != null) thread.interrupt();
-		mode = MODE.CLOSED;
 	}
-	
+
 	@Override
 	public void dataRecived(String data, SSLSocket sck) {
 		try {
 			String[] split = data.split(" ");
 			String cmd = split[0];
 			
+			if(cmd.equals("PONG")) {
+				ping_task.recvPing(Integer.parseInt(split[1]));
+				return;
+			}
+
 			switch(mode) {
 			case NEW:
 				println("Recieved data while in NEW state: "+data);
@@ -99,10 +109,10 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 				if(cmd.equals("VERSION")) {
 					int v = Integer.parseInt(split[1]);
 					if(v < MIN_VERSION) {
-						output.println("VERSION ERROR "+MIN_VERSION+" "+VERSION);
+						send("VERSION ERROR "+MIN_VERSION+" "+VERSION);
 						close();
 					} else {
-						output.println("VERSION OK");
+						send("VERSION OK");
 						mode = MODE.VERSION_OK;
 					}
 					return;
@@ -117,7 +127,7 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 					challenge = Util.randomString(CHALLENGE_LENGTH);
 					mode = MODE.CHALLENGED;
 					println("Challenge: "+challenge);
-					output.println("CHALLENGE "+ Util.toHex(rsa.encrypt(challenge)));
+					send("CHALLENGE "+ Util.toHex(rsa.encrypt(challenge)));
 					return;
 				}
 				break;
@@ -129,15 +139,15 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 						try {
 							user = User.authenticate(username, RSA.getFingerprint(pkey));
 							mode = MODE.IDLE;
-							output.println("AUTH OK");
+							send("AUTH OK");
 							initUser();
 						} catch (UserNotAllowedException e) {
 							println(e.getMessage());
-							output.println("AUTH ERROR");
+							send("AUTH ERROR");
 							close();
 						}
 					} else {
-						output.println("CHALLENGE ERROR");
+						send("CHALLENGE ERROR");
 						close();
 					}
 					return;
@@ -149,7 +159,7 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 				}
 				/* Get lines from channel */
 				if(cmd.equals("LINES")) {
-					
+
 				}
 			case IDLE:
 				if(cmd.equals("ACTIVATE")) {
@@ -164,14 +174,14 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 			case CLOSED:
 			default:
 				break;
-			} 
+			}
 			println("Unhandled input: "+data+ " in mode "+mode.toString());
 		} catch (Exception e) {
 			println("Error while parsing data : ");
 			e.printStackTrace();
 		}
 	}
-	
+
 	public void initUser() throws SQLException {
 		session = server.userSession(user);
 		session.setClientSession(this);
@@ -181,7 +191,7 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 	public boolean alive() {
 		return mode != MODE.CLOSED;
 	}
-	
+
 	@Override
 	public void newClient(SSLSocket client, SSLServerSocket srvr) { }
 
@@ -196,17 +206,28 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 	public void handshakeCompleted(HandshakeCompletedEvent event) {
 		try {
 			output = new PrintStream(socket.getOutputStream());
+			server.getPingTimer().schedule(ping_task, PingTask.PING_INTERVAL, PingTask.PING_INTERVAL);
 			mode = MODE.HANDSHAKED;
 			thread = SSLSocketManager.receive(socket, this);
-			output.println("VERSION "+VERSION);
+			send("VERSION "+VERSION);
 		} catch (IOException e) {
 			println("Failed to create output stream for client: "+e.getMessage());
 			close();
 		}
 	}
-	
+
 	private void println(String str) {
 		System.out.println("[CLIENT] "+str);
+	}
+
+	private void send(String msg) {
+		try {
+			output.println(msg);
+			output.flush();
+		} catch (Exception e) {
+			println("Connection lost.");
+			close();
+		}
 	}
 
 	@Override
@@ -214,15 +235,37 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 		println(line);
 		switch(mode) {
 		case ACTIVE:
-			output.println(line);
+			send(line);
 			break;
 		case IDLE:
 			if(priority != Priority.NORMAL) {
-				output.println(line);
+				send(line);
 			}
 			break;
 		default:
 			break;
 		}
+	}
+	
+	private class PingTask extends TimerTask {
+		public final static long PING_INTERVAL = 10000;
+		private final static int MAX_MISSED_PINGS = 3;
+		private int last_ping_response = -1;
+		private int next_ping_seq = 0;
+		
+		public void recvPing(int seq) {
+			last_ping_response = seq;
+		}
+		
+		@Override
+		public void run() {
+			if(next_ping_seq - last_ping_response > MAX_MISSED_PINGS) {
+				println("Ping timeout.");
+				close();
+			} else {
+				send("PING "+(++next_ping_seq));
+			}
+		}
+		
 	}
 }
