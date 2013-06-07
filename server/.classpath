@@ -3,10 +3,6 @@
 	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/lib"/>
-	<classpathentry kind="lib" path="/data/home/torandi/code/misc/android_irc/external_libs/JerkLib-.7r811/jerklib.jar" sourcepath="/data/home/torandi/code/misc/android_irc/external_libs/JerkLib-.7r811/JerkLib-.7r811_src.zip">
-		<attributes>
-			<attribute name="javadoc_location" value="jar:file:/home/torandi/dev/android_irc/external_libs/JerkLib-.7r811/JerkLib-.7r811-javadocs.zip!/"/>
-		</attributes>
-	</classpathentry>
+	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/JerkLib"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
