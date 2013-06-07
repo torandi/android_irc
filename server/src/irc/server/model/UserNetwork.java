@@ -21,8 +21,6 @@ import irc.server.db.ValidationException;
 
 public class UserNetwork extends DatabaseObject<UserNetwork> implements IRCEventListener, SendEvent {
 	private Session session = null;
-	private Network network = null;
-	private int server_index = 0;
 	private ConnectionManager connman = null;
 	private OutputStreamWriter log = null;
 	private SendEvent receiver = null;
@@ -34,37 +32,23 @@ public class UserNetwork extends DatabaseObject<UserNetwork> implements IRCEvent
 		receiver = rcvr;
 		
 		try {
-			log = new FileWriter("logs/"+getNetwork().getName()+".log");
+			log = new FileWriter("logs/"+getAddress()+".log");
 		} catch (IOException e1) {
-			System.err.println("Failed to open logs/"+getNetwork().getName()+".log, logging to stdout");
+			System.err.println("Failed to open logs/"+getAddress()+".log, logging to stdout");
 			log = new OutputStreamWriter(System.out);
 		}
 		
-		System.out.println("Connecting to network "+getNetwork().getName());
-		ArrayList<Server> servers = new ArrayList<Server>();
-		try {
-			servers = getNetwork().getServers();
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-		
-		if(servers.size() == 0) {
-			System.err.println("No servers for network "+getNetwork().getName());
-			return;
-		}
-		
-		session = servers.get(server_index).connect(connman, createProfile());
+		session = connect(connman, getUser().createProfile());
 		session.addIRCEventListener(this);
+	}
+	
+	public Session connect(ConnectionManager connman, Profile profile) {
+		System.out.println("Connecting to server "+getAddress()+":"+getPort());
+		return connman.requestConnection(getAddress(), getPort(), profile);
 	}
 	
 	public void disconnect() {
 		session.close("AndroidIRC: Quitting");
-	}
-	
-	public Profile createProfile() {
-		String nick = getNick();
-		if(nick == null) return getUser().createProfile();
-		return User.createProfile(nick);
 	}
 	
 	public Channel findChannel(String name, boolean privmsg) {
@@ -165,8 +149,8 @@ public class UserNetwork extends DatabaseObject<UserNetwork> implements IRCEvent
 			}
 			break;
 		case CONNECTION_LOST:
-			System.out.println("Lost connection to "+getNetwork().getName());
-			sendLine(Priority.STATUS_CHANGE, "CONNLOST "+getNetwork().getName());
+			System.out.println("Lost connection to "+getAddress());
+			sendLine(Priority.STATUS_CHANGE, "CONNLOST");
 			try {
 				Thread.sleep(5000);
 				connect(connman, receiver);
@@ -197,6 +181,8 @@ public class UserNetwork extends DatabaseObject<UserNetwork> implements IRCEvent
 		case JOIN_COMPLETE:
 		{
 			JoinCompleteEvent event = (JoinCompleteEvent) e;
+			Channel channel = getChannel(event.getChannel().getName());
+			channel.ircChannel = event.getChannel();
 			sendChannel(event.getChannel());
 			break;
 		}
@@ -258,8 +244,8 @@ public class UserNetwork extends DatabaseObject<UserNetwork> implements IRCEvent
 		}
 	}
 	
-	public jerklib.Channel getChannel(String name) {
-		return session.getChannel(name);
+	public Channel getChannel(String name) {
+		return channel_map.get(name);
 	}
 	
 	public void sendTopic(jerklib.Channel channel) {
@@ -287,22 +273,6 @@ public class UserNetwork extends DatabaseObject<UserNetwork> implements IRCEvent
 		return session;
 	}
 	
-	public String getNick() {
-		return (String) get("nick");
-	}
-	
-	public void setNick(String nick) {
-		set("nick", nick);
-	}
-	
-	public int getNetworkId() {
-		return get_int("network_id");
-	}
-	
-	public void setNetworkId(int id) {
-		set("network_id", id);
-	}
-	
 	public int getUserId() {
 		return get_int("user_id");
 	}
@@ -311,9 +281,19 @@ public class UserNetwork extends DatabaseObject<UserNetwork> implements IRCEvent
 		set("user_id", id);
 	}
 	
-	public Network getNetwork() {
-		if(network == null) network = Network.q().from_id(getNetworkId());
-		return network;
+	public String getAddress() {
+		return (String) get("address");
+	}
+	
+	public int getPort() {
+		return get_int("port");
+	}
+	
+	public void setPort(int port) {
+		set("port", port);
+	}
+	public void setAddress(String address) {
+		set("address", address);
 	}
 	
 	public User getUser() {
@@ -350,7 +330,15 @@ public class UserNetwork extends DatabaseObject<UserNetwork> implements IRCEvent
 
 	@Override
 	public void sendLine(Priority priority, String line) {
-		receiver.sendLine(priority, "DATA " + getNetworkId()+" "+line);
+		receiver.sendLine(priority, "DATA " + id()+" "+line);
+	}
+
+	public void setNick(String nick) {
+		session.changeNick(nick);
+	}
+
+	public void sendPrivMsg(String name, String line) {
+		session.sayPrivate(name, line);
 	}
 
 }

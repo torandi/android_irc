@@ -1,7 +1,10 @@
 package irc.server;
 
+import irc.server.model.Channel;
+import irc.server.model.LogLine;
 import irc.server.model.User;
 import irc.server.model.User.UserNotAllowedException;
+import irc.server.model.UserNetwork;
 
 import java.io.IOException;
 import java.io.PrintStream;
@@ -153,19 +156,111 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 					return;
 				}
 			case ACTIVE:
+			case IDLE:
 				if(cmd.equals("IDLE")) {
 					mode = MODE.IDLE;
 					return;
 				}
-				/* Get lines from channel */
-				if(cmd.equals("LINES")) {
-
+				
+				if(cmd.equals("NETWORK")) {
+					String cmd2 = split[1];
+					if(cmd2.equals("ADD")) {
+						String addr = split[2];
+						int port = split.length > 3 ? Integer.parseInt(split[3]) : 6667;
+						session.addNetwork(addr, port);
+						return;
+					} else if(cmd2.equals("DEL")) {
+						int id = Integer.parseInt(split[2]);
+						session.deleteNetwork(id);
+						return;
+					} else if(cmd2.equals("LIST")) {
+						session.listNetworks();
+						
+					} else if(cmd2.equals("CHANGE")) {
+						int id = Integer.parseInt(split[2]);
+						UserNetwork nw = session.getNetwork(id);
+						if(nw == null) {
+							send("ERROR Unknown network id");
+						} else {
+							String addr = split[3];
+							int port = split.length > 4 ? Integer.parseInt(split[4]) : 6667;
+							nw.setAddress(addr);
+							nw.setPort(port);
+							nw.commit();
+							send("NETWORK CHANGE "+id+" "+addr+" "+port);
+						}
+						return;
+					} else if(cmd2.equals("RECONN")) {
+						int id = Integer.parseInt(split[2]);
+						UserNetwork nw = session.getNetwork(id);
+						session.reconnect(nw);
+						return;
+					}
 				}
-			case IDLE:
+				
+				if(cmd.equals("NICK")) {
+					session.setNick(split[1]);
+				}
+				
+				if(cmd.equals("DATA")) {
+					int nwid = Integer.parseInt(split[1]);
+					UserNetwork nw = session.getNetwork(nwid);
+					String cmd2 = split[2];
+					
+					if(nw == null) {
+						send("ERROR Unknown network id");
+						return;
+					}
+					Channel channel = null;
+					if(cmd2.equals("CHANNEL")) {
+						String channel_name = split[3];
+						channel = nw.getChannel(channel_name);
+						if(channel == null) {
+							send("ERROR Unknown channel " +channel_name +" in network "+nw.getAddress());
+							return;
+						} else if(channel.ircChannel == null) {
+							send("ERROR Not yet joined to " +channel_name +" in network "+nw.getAddress());
+							return;
+						}
+						
+						String cmd3 = split[4];
+						/* Channel specifics */
+					}
+					
+					if(cmd2.equals("PRIVMSG")) {
+						String with = split[3];
+						channel = nw.findChannel(with, true);
+						
+						String cmd3 = split[4];
+						/* PRIVMSG specifics */
+					}
+					
+					if(channel != null) {
+						String cmd3 = split[4];
+					/* Get lines from channel */
+						if(cmd3.equals("LINES")) {
+							int last_line = -1;
+							if(split.length > 2) {
+								last_line = Integer.parseInt(split[2]);
+							}
+							for(LogLine line : channel.getLines(last_line)) {
+								line.send(nw);
+							}
+							return;
+						} else if(cmd3.equals("SAY")) {
+							String msg = split[5];
+							channel.say(msg);
+							return;
+						}
+					}
+				}
+				
+				
 				if(cmd.equals("ACTIVATE")) {
 					mode = MODE.ACTIVE;
 					return;
 				}
+				
 				if(cmd.equals("CLOSE")) {
 					close();
 					return;
@@ -248,8 +343,8 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 	}
 	
 	private class PingTask extends TimerTask {
-		public final static long PING_INTERVAL = 10000;
-		private final static int MAX_MISSED_PINGS = 3;
+		public final static long PING_INTERVAL = 30000;
+		private final static int MAX_MISSED_PINGS = 2;
 		private int last_ping_response = -1;
 		private int next_ping_seq = 0;
 		

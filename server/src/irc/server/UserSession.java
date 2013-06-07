@@ -28,19 +28,58 @@ public class UserSession implements SendEvent {
 		}
 	}
 	
-	public void addNetwork(Network network) throws SQLException, ValidationException {
+	public void addNetwork(String address, int port) throws SQLException, ValidationException {
 		UserNetwork un = new UserNetwork();
-		un.setNetworkId(network.id());
+		un.setAddress(address);
+		un.setPort(port);
 		un.setUserId(user.id());
 		un.commit();
+		
+		sendNetwork(un);
+		
+		un.connect(connman, this);
 		
 		synchronized(networks) {
 			networks.put(un.id(), un);
 		}
+		
+	}
+	
+	public void reconnect(UserNetwork nw) {
+		nw.disconnect();
+		nw.connect(connman, this);
 	}
 	
 	public void setClientSession(ClientSession session) {
 		this.session = session;
+	}
+	
+	public void sendNetwork(UserNetwork nw) {
+		sendLine(Priority.STATUS_CHANGE, "NETWORK "+nw.id()+" "+nw.getAddress() + " "+nw.getPort());
+	}
+	
+	public void setNick(String nick) {
+		for(UserNetwork nw : networks.values()) {
+			nw.setNick(nick);
+		}
+	}
+	
+	public void listNetworks() {
+		for(UserNetwork nw : networks.values()) {
+			sendNetwork(nw);
+		}
+	}
+	
+	public void sendChannels(UserNetwork nw) throws SQLException {
+		for(Channel channel : nw.getChannels()) {
+			if(!channel.isPrivMsg()) {
+				nw.sendChannel(channel.ircChannel);
+				nw.sendTopic(channel.ircChannel);
+				nw.sendNickList(channel.ircChannel);
+			} else {
+				nw.sendLine(Priority.STATUS_CHANGE, "PRIVMSG "+channel.getName());
+			}
+		}
 	}
 	
 	@Override
@@ -51,17 +90,8 @@ public class UserSession implements SendEvent {
 	
 	public void sendInitials() throws SQLException {
 		for(UserNetwork nw : networks.values()) {
-			sendLine(Priority.STATUS_CHANGE, "NETWORK "+nw.getNetworkId()+" "+nw.getNetwork().getName());
-			for(Channel c : nw.getChannels()) {
-				if(!c.isPrivMsg()) {
-					jerklib.Channel channel = nw.getChannel(c.getName());
-					nw.sendChannel(channel);
-					nw.sendTopic(channel);
-					nw.sendNickList(channel);
-				} else {
-					nw.sendLine(Priority.STATUS_CHANGE, "PRIVMSG "+c.getName());
-				}
-			}
+			sendNetwork(nw);
+			sendChannels(nw);
 		}
 	} 
 
@@ -69,5 +99,17 @@ public class UserSession implements SendEvent {
 	public void sendLine(Priority priority, String line) {
 		System.out.println("[UserSession] " +line);
 		if(session != null) session.sendLine(priority, line);
+	}
+	
+	public UserNetwork getNetwork(int id) {
+		return networks.get(id);
+	}
+	
+	public void deleteNetwork(int id) {
+		UserNetwork nw = networks.remove(id);
+		if(nw != null) {
+			nw.disconnect();
+			sendLine(Priority.STATUS_CHANGE, "NETWORK "+id+" DEL");
+		}
 	}
 }

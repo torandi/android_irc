@@ -12,6 +12,8 @@ public class Channel extends DatabaseObject<Channel> {
 	private final static int LINE_LIMIT = 50;
 	LogLine last_line = null;
 	
+	public jerklib.Channel ircChannel = null;
+	
 	public void pushLine(LogLine line) throws SQLException, ValidationException {
 		line.setChannel(id());
 		line.commit();
@@ -29,10 +31,19 @@ public class Channel extends DatabaseObject<Channel> {
 	}
 	
 	public ArrayList<LogLine> getLines(int id_less_than) throws SQLException {
+		if(id_less_than < 0) return getLines();
 		PreparedStatement stmt = LogLine.q().statement("channel_id = ?  AND id < ?", ""+LINE_LIMIT);
 		stmt.setInt(1, id());
 		stmt.setInt(2, id_less_than);
 		return LogLine.q().where(stmt);
+	}
+	
+	public void say(String line) {
+		if(isPrivMsg()) {
+			getUserNetwork().sendPrivMsg(getName(), line);
+		} else {
+			ircChannel.say(line);
+		}
 	}
 	
 	/* Data readers/writers */
