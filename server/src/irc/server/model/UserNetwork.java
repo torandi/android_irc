@@ -139,7 +139,7 @@ public class UserNetwork extends DatabaseObject<UserNetwork> implements IRCEvent
 			break;
 		case CONNECT_COMPLETE:
 			channel_map.clear();
-			try { 
+			try {
 				for(Channel c : getChannels()) {
 					channel_map.put(c.getName(), c);
 					if(!c.isPrivMsg()) session.join(c.getName());
@@ -242,6 +242,17 @@ public class UserNetwork extends DatabaseObject<UserNetwork> implements IRCEvent
 			}
 			break;
 		}
+	}
+	
+	public void joinChannel(Channel c) {
+		session.join(c.getName());
+	}
+	
+	public void partChannel(Channel channel, String msg) {
+		if(!channel.isPrivMsg() && channel.ircChannel != null) {
+			channel.ircChannel.part(msg);
+		}
+		channel_map.remove(channel.getName());
 	}
 	
 	public Channel getChannel(String name) {

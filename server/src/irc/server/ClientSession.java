@@ -214,7 +214,16 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 					Channel channel = null;
 					if(cmd2.equals("CHANNEL")) {
 						String channel_name = split[3];
+						String cmd3 = split[4];
+						
+						if(cmd3.equals("JOIN")) {
+							channel = nw.findChannel(channel_name, false);
+							nw.joinChannel(channel);
+							return;
+						}
+						
 						channel = nw.getChannel(channel_name);
+						
 						if(channel == null) {
 							send("ERROR Unknown channel " +channel_name +" in network "+nw.getAddress());
 							return;
@@ -222,22 +231,18 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 							send("ERROR Not yet joined to " +channel_name +" in network "+nw.getAddress());
 							return;
 						}
-						
-						String cmd3 = split[4];
-						/* Channel specifics */
 					}
 					
 					if(cmd2.equals("PRIVMSG")) {
 						String with = split[3];
 						channel = nw.findChannel(with, true);
 						
-						String cmd3 = split[4];
-						/* PRIVMSG specifics */
+						//String cmd3 = split[4];
 					}
 					
 					if(channel != null) {
 						String cmd3 = split[4];
-					/* Get lines from channel */
+						
 						if(cmd3.equals("LINES")) {
 							int last_line = -1;
 							if(split.length > 2) {
@@ -251,6 +256,9 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 							String msg = split[5];
 							channel.say(msg);
 							return;
+						} else if(cmd3.equals("PART")) {
+							String msg = split.length > 5 ? split[5] : "User left the channel.";
+							nw.partChannel(channel, msg);
 						}
 					}
 				}
