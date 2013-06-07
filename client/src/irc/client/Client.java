@@ -4,6 +4,7 @@ import java.io.*;
 import java.math.BigInteger;
 import java.security.KeyStore;
 import java.security.cert.X509Certificate;
+import java.util.HashMap;
 
 import javax.net.ssl.HandshakeCompletedEvent;
 import javax.net.ssl.HandshakeCompletedListener;
@@ -14,6 +15,8 @@ import javax.net.ssl.SSLSocket;
 import com.torandi.lib.net.*;
 import com.torandi.lib.security.RSA;
 import com.torandi.lib.security.Util;
+
+import irc.client.model.*;
 
 public class Client implements SSLSocketListener, HandshakeCompletedListener {
 	private String nick;
@@ -26,6 +29,8 @@ public class Client implements SSLSocketListener, HandshakeCompletedListener {
 	private static int VERSION = 0;
 	private static int MIN_VERSION = 0;
 	
+	private HashMap<Integer, Network> networks = new HashMap<Integer, Network>();
+	
 	private enum MODE {
 		NEW,
 		HANDSHAKED,
@@ -36,9 +41,12 @@ public class Client implements SSLSocketListener, HandshakeCompletedListener {
 	};
 	
 	private MODE mode;
+	
+	private ClientEventListener client_event_listener;
 
-	public Client(String hostname, int port, String nick, String keystore_file, String password) {
+	public Client(ClientEventListener listener, String hostname, int port, String nick, String keystore_file, String password) {
 		this.nick = nick;
+		client_event_listener = listener;
 		initRSA();
 		
 		try {
@@ -110,7 +118,13 @@ public class Client implements SSLSocketListener, HandshakeCompletedListener {
 	}
 	
 	public void activate() {
-		
+		output.println("ACTIVATE");
+		mode = MODE.ACTIVE;
+	}
+	
+	public void idle() {
+		output.println("IDLE");
+		mode = MODE.IDLE;
 	}
 	
 	private void sendPublicKey() {
@@ -199,6 +213,15 @@ public class Client implements SSLSocketListener, HandshakeCompletedListener {
 						return;
 					}
 				}
+				break;
+			case ACTIVE:
+			case IDLE:
+				if(cmd.equals("DATA")) {
+					int nwid = Integer.parseInt(split[1]);
+					Network nw = networks.get(nwid);
+					
+				}
+				break;
 			} 
 			System.out.println("Unhandled input: "+data+ " in mode "+mode.toString());
 		} catch (Exception e) {
