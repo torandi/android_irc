@@ -1,12 +1,15 @@
 package irc.client.model;
 
 import java.util.Arrays;
+import java.util.Date;
 
 import android.text.TextUtils;
+import android.text.format.Time;
 
 public class LogLine implements Comparable<LogLine> {
-	private String user, time, message, channel;
+	private String user, message, channel;
 	private int id;
+	private Date time;
 	
 	public static enum Type { MSG, PART, JOIN };
 	
@@ -16,7 +19,7 @@ public class LogLine implements Comparable<LogLine> {
 		return user;
 	}
 
-	public String getTime() {
+	public Date getTime() {
 		return time;
 	}
 
@@ -38,7 +41,7 @@ public class LogLine implements Comparable<LogLine> {
 
 	public LogLine(String[] from_server, int offset) {
 		id = Integer.parseInt(from_server[offset+0]);
-		time = from_server[offset+1];
+		time = new Date(Long.parseLong(from_server[offset+1]));
 		type = Type.valueOf(Type.class, from_server[offset+2]);
 		channel = from_server[offset+3];
 		user = from_server[offset+4];
@@ -47,7 +50,7 @@ public class LogLine implements Comparable<LogLine> {
 
 	@Override
 	public int compareTo(LogLine o) {
-		return o.id - id;
+		return o.time.compareTo(time);
 	}
 	
 }

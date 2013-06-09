@@ -12,6 +12,8 @@ import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLSocket;
 
+import android.location.GpsStatus.Listener;
+
 import com.torandi.lib.net.*;
 import com.torandi.lib.security.RSA;
 import com.torandi.lib.security.Util;
@@ -81,6 +83,7 @@ public class Client implements SSLSocketListener, HandshakeCompletedListener {
 			}
 		
 		} catch (Exception e) {
+			client_event_listener.error("Connection problem: " + e.getMessage());
 			e.printStackTrace();
 			return;
 		}
@@ -204,7 +207,7 @@ public class Client implements SSLSocketListener, HandshakeCompletedListener {
 					return;
 				} else if(cmd.equals("AUTH")) {
 					if(split[1].equals("ERROR")) {
-						System.out.println("You are not authorized. Add "+nick+"@"+rsa.getFingerprint()+ " to authorized_users on the server");
+						client_event_listener.notAuthorized(nick+"@"+rsa.getFingerprint());
 						close();
 						return;
 					} else if(split[1].equals("OK")) {
@@ -219,6 +222,71 @@ public class Client implements SSLSocketListener, HandshakeCompletedListener {
 				if(cmd.equals("DATA")) {
 					int nwid = Integer.parseInt(split[1]);
 					Network nw = networks.get(nwid);
+					if(nw == null) {
+						client_event_listener.error("Incomming: Unknown network id "+nwid);
+						return;
+					}
+					String cmd2 = split[2];
+					
+					if(cmd2.equals("CHANNEL")) {
+						Channel c = nw.getChannel(split[3], false);
+						return;
+					}
+					
+					if(cmd2.equals("PRIVMSG")) {
+						Channel c = nw.getChannel(split[3],true);
+						return;
+					}
+					
+					if(cmd2.equals("NICKLIST")) {
+						Channel c = nw.getChannel(split[3], false);
+						c.getUsers().clear();
+						for(int i=4; i<split.length; ++i) {
+							c.getUsers().add(split[i]);
+						}
+						client_event_listener.nickListUpdate(c);
+						return;
+					}
+					
+					if(cmd2.equals("LINE")) {
+						LogLine line = new LogLine(split, 3);
+						Channel c = nw.getChannel(line.getChannel(), false);
+						c.addLine(line);
+						return;
+					}
+					
+					/* NOTICE */
+					
+					
+					
+					return;
+				}
+				if(cmd.equals("NETWORK")) {
+					int nwid = Integer.parseInt(split[1]);
+					String cmd2 = split[2];
+					if(cmd2.equals("ADD")) {
+						Network nw = new Network(client_event_listener, nwid, split[3], Integer.parseInt(split[4]));
+						networks.put(nwid, nw);
+						client_event_listener.addNetwork(nw);
+						return;
+					}
+					Network nw = networks.get(nwid);
+					if(nw == null) {
+						client_event_listener.error("Incomming: Unknown network id "+nwid);
+						return;
+					}
+					
+					if(cmd2.equals("CHANGE")) {
+						nw.change(split[3], Integer.parseInt(split[4]));
+						client_event_listener.changeNetwork(nw);
+						return;
+					}
+					
+					if(cmd2.equals("DEL")) {
+						networks.remove(nwid);
+						client_event_listener.removeNetwork(nw);
+						return;
+					}
 					
 				}
 				break;
@@ -230,6 +298,8 @@ public class Client implements SSLSocketListener, HandshakeCompletedListener {
 		}
 		
 	}
+	
+	/* TODO: methods for actions */
 
 	@Override
 	public void newClient(SSLSocket client, SSLServerSocket srvr) {
@@ -242,5 +312,4 @@ public class Client implements SSLSocketListener, HandshakeCompletedListener {
 		// TODO Auto-generated method stub
 		
 	}
-
 }

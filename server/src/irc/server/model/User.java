@@ -37,12 +37,12 @@ public class User extends DatabaseObject<User> {
 		set("nick", nick);
 	}
 	
-	public String getFingerprint() {
-		return (String) get("fingerprint");
+	public String getUser() {
+		return (String) get("user");
 	}
 	
-	public void setFingerprint(String fingerprint) {
-		set("fingerprint", fingerprint);
+	public void setUser(String user) {
+		set("user", user);
 	}
 	
 	public ArrayList<UserNetwork> getNetworks() throws SQLException {
@@ -56,7 +56,7 @@ public class User extends DatabaseObject<User> {
 			String line;
 			while((line = br.readLine()) != null) {
 				String[] split = line.split("@"); // nick@fingerprint
-				list.add(split[1].trim());
+				list.add(split[0].trim());
 			}
 			br.close();
 		} catch (Exception e) {
@@ -68,13 +68,28 @@ public class User extends DatabaseObject<User> {
 	public static User authenticate(String username, String fingerprint) throws UserNotAllowedException, SQLException, ValidationException {
 		ArrayList<String> authorizedUsers = authorizedUsers();
 	
-		if(authorizedUsers.contains(fingerprint)) {
-			User u = q().first("fingerprint", fingerprint);
+		String user = null;
+		try {
+			BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(new File("authorized_users"))));
+			String line;
+			while((line = br.readLine()) != null) {
+				String[] split = line.split("@"); // nick@fingerprint
+				if(split[1].trim().equals(fingerprint)) {
+					user = split[0].trim();
+				}
+			}
+			br.close();
+		} catch (Exception e) {
+			System.err.println("Failed to read authorized_users");
+		}
+		
+		if(user != null) {
+			User u = q().first("user", user);
 			if(u == null) {
 				/* Create new user */
 				u = new User();
-				u.setNick(username);
-				u.setFingerprint(fingerprint);
+				u.setNick(user);
+				u.setUser(fingerprint);
 				u.commit();
 			}
 			return u;
@@ -107,9 +122,8 @@ public class User extends DatabaseObject<User> {
 	
 	public void validate() throws ValidationException {
 		validateExistance("nick");
-		validateExistance("fingerprint");
-		validateUniqueness("nick");
-		validateUniqueness("fingerprint");
+		validateExistance("user");
+		validateUniqueness("user");
 	}
 	
 

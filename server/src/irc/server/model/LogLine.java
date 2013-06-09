@@ -15,7 +15,7 @@ public class LogLine extends DatabaseObject<LogLine> {
 	 */
 	public void send(SendEvent receiver) {
 		Priority p = isHilight() ? Priority.HIGH : Priority.NORMAL;
-		receiver.sendLine(p, "LINE "+id()+getTimestamp().getTime()+" "+getType() + " "+" "+getChannel().getName()+" "+getUser()+" "+getContent());
+		receiver.sendLine(p, "LINE "+id()+" "+getTimestamp().getTime()+" "+getType() +" "+getChannel().getName()+" "+getUser()+" "+getContent());
 	}
 
 	/* Data readers/writers */

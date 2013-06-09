@@ -20,7 +20,6 @@ public class Server implements SSLSocketListener {
 	private SSLUtil ssl;
 	private SSLServerSocket socket;
 	private Thread socket_thread;
-	private Timer ping_timer;
 	
 	private HashMap<Integer, UserSession> userSessions = new HashMap<Integer, UserSession>();
 	
@@ -28,7 +27,7 @@ public class Server implements SSLSocketListener {
 		try {
 			ArrayList<String> authorizedUsers = User.authorizedUsers();
 			for(User u : User.q().all()) {
-				if(authorizedUsers.contains(u.getFingerprint())) {
+				if(authorizedUsers.contains(u.getUser())) {
 					userSession(u);
 				}
 			}
@@ -37,8 +36,6 @@ public class Server implements SSLSocketListener {
 			e.printStackTrace();
 			System.exit(-1);
 		}
-		
-		ping_timer = new Timer(true);
 		
 		try {
 			ssl = new SSLUtil(keystore, password);
@@ -85,9 +82,4 @@ public class Server implements SSLSocketListener {
 	private void println(String str) {
 		System.out.println("[CLIENT] "+str);
 	}
-	
-	Timer getPingTimer() {
-		return ping_timer;
-	}
-
 }

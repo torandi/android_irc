@@ -6,6 +6,7 @@ import irc.server.model.User;
 import irc.server.model.User.UserNotAllowedException;
 import irc.server.model.UserNetwork;
 
+import java.awt.image.ImagingOpException;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.math.BigInteger;
@@ -33,7 +34,6 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 	private static int CHALLENGE_LENGTH = 100;
 	private String challenge = null;
 	private Server server = null;
-	private PingTask ping_task = null;
 
 	private User user = null;
 	private UserSession session = null;
@@ -53,7 +53,6 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 	public ClientSession(Server server, SSLSocket socket) {
 		this.socket = socket;
 		this.server = server;
-		ping_task = new PingTask();
 		rsa = new RSA();
 
 		mode = MODE.NEW;
@@ -61,13 +60,13 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 		try {
 			socket.startHandshake();
 		} catch (IOException e) {
-			println("Handshake error: ");
-			e.printStackTrace();
+			try {
+			socket.startHandshake();
+			} catch (IOException ex) {}
 		}
 	}
 
 	public void close() {
-		ping_task.cancel();
 		if(output != null) {
 			try {
 				output.println("CLOSE");
@@ -80,9 +79,7 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 			session = server.userSession(user);
 			session.setClientSession(null);
 			socket.close();
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+		} catch (Exception e) { }
 		if(thread != null) thread.interrupt();
 		mode = MODE.CLOSED;
 	}
@@ -99,11 +96,6 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 			String[] split = data.split(" ");
 			String cmd = split[0];
 			
-			if(cmd.equals("PONG")) {
-				ping_task.recvPing(Integer.parseInt(split[1]));
-				return;
-			}
-
 			switch(mode) {
 			case NEW:
 				println("Recieved data while in NEW state: "+data);
@@ -141,7 +133,7 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 					if(response.trim().equals(challenge)) {
 						try {
 							user = User.authenticate(username, RSA.getFingerprint(pkey));
-							mode = MODE.IDLE;
+							mode = MODE.ACTIVE;
 							send("AUTH OK");
 							initUser();
 						} catch (UserNotAllowedException e) {
@@ -187,7 +179,7 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 							nw.setAddress(addr);
 							nw.setPort(port);
 							nw.commit();
-							send("NETWORK CHANGE "+id+" "+addr+" "+port);
+							send("NETWORK "+id+" CHANGE "+addr+" "+port);
 						}
 						return;
 					} else if(cmd2.equals("RECONN")) {
@@ -309,7 +301,6 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 	public void handshakeCompleted(HandshakeCompletedEvent event) {
 		try {
 			output = new PrintStream(socket.getOutputStream());
-			server.getPingTimer().schedule(ping_task, PingTask.PING_INTERVAL, PingTask.PING_INTERVAL);
 			mode = MODE.HANDSHAKED;
 			thread = SSLSocketManager.receive(socket, this);
 			send("VERSION "+VERSION);
@@ -348,27 +339,5 @@ public class ClientSession implements SSLSocketListener, HandshakeCompletedListe
 		default:
 			break;
 		}
-	}
-	
-	private class PingTask extends TimerTask {
-		public final static long PING_INTERVAL = 30000;
-		private final static int MAX_MISSED_PINGS = 2;
-		private int last_ping_response = -1;
-		private int next_ping_seq = 0;
-		
-		public void recvPing(int seq) {
-			last_ping_response = seq;
-		}
-		
-		@Override
-		public void run() {
-			if(next_ping_seq - last_ping_response > MAX_MISSED_PINGS) {
-				println("Ping timeout.");
-				close();
-			} else {
-				send("PING "+(++next_ping_seq));
-			}
-		}
-		
 	}
 }

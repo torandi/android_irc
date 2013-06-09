@@ -27,6 +27,10 @@ public class UserNetwork extends DatabaseObject<UserNetwork> implements IRCEvent
 	
 	private HashMap<String, Channel> channel_map = new HashMap<String, Channel>();
 	
+	public final HashMap<String, Channel> getChannelMap() {
+		return channel_map;
+	}
+
 	public void connect(ConnectionManager connman, SendEvent rcvr) {
 		this.connman = connman;
 		receiver = rcvr;
@@ -140,7 +144,7 @@ public class UserNetwork extends DatabaseObject<UserNetwork> implements IRCEvent
 		case CONNECT_COMPLETE:
 			channel_map.clear();
 			try {
-				for(Channel c : getChannels()) {
+				for(Channel c : getDatabaseChannels()) {
 					channel_map.put(c.getName(), c);
 					if(!c.isPrivMsg()) session.join(c.getName());
 				}
@@ -311,7 +315,7 @@ public class UserNetwork extends DatabaseObject<UserNetwork> implements IRCEvent
 		return User.q().from_id(getUserId());
 	}
 	
-	public ArrayList<Channel> getChannels() throws SQLException {
+	public ArrayList<Channel> getDatabaseChannels() throws SQLException {
 		return Channel.q().find("user_network_id", id());
 	}
 

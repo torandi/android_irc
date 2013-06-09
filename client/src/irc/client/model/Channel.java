@@ -1,5 +1,7 @@
 package irc.client.model;
 
+import irc.client.ClientEventListener;
+
 import java.util.ArrayList;
 import java.util.TreeSet;
 
@@ -7,15 +9,26 @@ public class Channel {
 	private String name;
 	private boolean hasHighlight = false;
 	private boolean hasNewMessage = false;
+	private boolean privmsg;
 	private TreeSet<LogLine> lines;
+	private ClientEventListener client_event_listener;
 	
-	public Channel(String name) {
+	private ArrayList<String> users = new ArrayList<String>();
+	
+	public Channel(ClientEventListener listener, String name, boolean privmsg) {
+		this.privmsg = privmsg;
+		client_event_listener = listener;
 		this.name = name;
+	}
+	
+	public boolean isPrivMsg() {
+		return privmsg;
 	}
 	
 	public void addLine(LogLine line) {
 		hasNewMessage = true;
 		lines.add(line);
+		client_event_listener.newLine(this, line);
 	}
 	
 	public String getName() {
@@ -42,6 +55,8 @@ public class Channel {
 	public ArrayList<LogLine> getLines() {
 		return new ArrayList<LogLine>(lines);
 	}
-	
-	
+
+	public ArrayList<String> getUsers() {
+		return users;
+	}
 }

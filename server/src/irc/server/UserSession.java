@@ -55,7 +55,7 @@ public class UserSession implements SendEvent {
 	}
 	
 	public void sendNetwork(UserNetwork nw) {
-		sendLine(Priority.STATUS_CHANGE, "NETWORK "+nw.id()+" "+nw.getAddress() + " "+nw.getPort());
+		sendLine(Priority.STATUS_CHANGE, "NETWORK "+nw.id()+" ADD "+nw.getAddress() + " "+nw.getPort());
 	}
 	
 	public void setNick(String nick) {
@@ -71,11 +71,13 @@ public class UserSession implements SendEvent {
 	}
 	
 	public void sendChannels(UserNetwork nw) throws SQLException {
-		for(Channel channel : nw.getChannels()) {
+		for(Channel channel : nw.getChannelMap().values()) {
 			if(!channel.isPrivMsg()) {
-				nw.sendChannel(channel.ircChannel);
-				nw.sendTopic(channel.ircChannel);
-				nw.sendNickList(channel.ircChannel);
+				if(channel.ircChannel != null) {
+					nw.sendChannel(channel.ircChannel);
+					nw.sendTopic(channel.ircChannel);
+					nw.sendNickList(channel.ircChannel);
+				}
 			} else {
 				nw.sendLine(Priority.STATUS_CHANGE, "PRIVMSG "+channel.getName());
 			}
